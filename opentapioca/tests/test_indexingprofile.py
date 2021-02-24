@@ -3,12 +3,11 @@ import os
 import pytest
 import json
 
-from opentapioca.typematcher import TypeMatcher
+from opentapioca.typematcher.typematcher import TypeMatcher
 from opentapioca.indexingprofile import TypeConstraint
 from opentapioca.indexingprofile import IndexingProfile
 from opentapioca.readers.dumpreader import WikidataDumpReader
-from .test_fixtures import testdir
-from .test_fixtures import load_item
+
 
 # # Stubs and fixtures
 

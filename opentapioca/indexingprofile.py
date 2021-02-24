@@ -1,10 +1,12 @@
 import json
 
+
 class AliasProperty(object):
     """
     Describes how to add an additional alias based on the
     value of a property.
     """
+
     def __init__(self, property, prefix=None):
         self.property = property
         self.prefix = prefix
@@ -36,10 +38,12 @@ class AliasProperty(object):
             values = [self.prefix + value for value in values]
         return values
 
+
 class TypeConstraint(object):
     """
     Describes a type constraint that an item should satisfy to be indexed.
     """
+
     def __init__(self, qid, pid):
         """
         :param qid: the qid of the target type
@@ -54,8 +58,8 @@ class TypeConstraint(object):
         JSON serialization
         """
         return {
-            'type':self.qid,
-            'property':self.pid,
+            'type': self.qid,
+            'property': self.pid,
         }
 
     @classmethod
@@ -71,7 +75,8 @@ class TypeConstraint(object):
         """
         valid_type_qids = item.get_types(self.pid)
         return any(type_matcher.is_subclass(qid, self.qid)
-                          for qid in valid_type_qids)
+                   for qid in valid_type_qids)
+
 
 class IndexingProfile(object):
     """
@@ -125,7 +130,7 @@ class IndexingProfile(object):
             return
 
         enlabel = item.get_default_label(self.language)
-        endesc = item.get('descriptions', {}).get(self.language, {}).get('value')
+        endesc = item.get('descriptions', {}).get(self.language, {}).get('label')
         if not enlabel:
             return
 
@@ -145,17 +150,37 @@ class IndexingProfile(object):
         nb_statements = item.get_nb_statements()
         nb_sitelinks = item.get_nb_sitelinks()
 
-        return {'id': item.get('id'),
-                'revid': item.get('lastrevid') or 1,
-               'label': enlabel,
-               'desc': endesc or '',
-               'edges': edges,
-               'types': json.dumps(type_features),
-               'aliases': list(aliases),
-               'extra_aliases': extra_aliases,
-               'nb_statements': nb_statements,
-               'nb_sitelinks': nb_sitelinks}
+        print("Indexing %s" % item.get('id'))
 
+        solr_doc = {
+            'id': item.get('id'),
+            'revid': item.get('lastrevid') or 1,
+            # 'label': enlabel,
+            # 'desc': endesc or '',
+            'edges': edges,
+            # 'types': json.dumps(type_features),
+            # 'aliases': list(aliases),
+            # 'extra_aliases': extra_aliases,
+            'nb_statements': nb_statements,
+            'nb_sitelinks': nb_sitelinks,
+            'types': json.dumps(type_features),
+        }
+
+        for label in item.get('labels', {}).values():
+            if self.is_language_supported(label.get('language')):
+                solr_doc[f"tag_{label.get('language')}_name"] = label.get('value')
+
+        for aliases_language in item.get('aliases', {}).keys():
+            if self.is_language_supported(aliases_language):
+                solr_doc[f"tag_{aliases_language}_alias"] = set()
+                for alias in item.get('aliases', {}).get(aliases_language):
+                    solr_doc[f"tag_{aliases_language}_alias"].add(alias.get('value'))
+
+        for description in item.get('descriptions', {}).values():
+            if self.is_language_supported(description.get('language')):
+                solr_doc[f"description_{description.get('language')}"] = description.get('value')
+
+        return solr_doc
 
     @classmethod
     def load(cls, filename):
@@ -204,3 +229,52 @@ class IndexingProfile(object):
             ],
         }
 
+    @staticmethod
+    def is_language_supported(param):
+        return param in [
+            'ar',
+            'bg',
+            'bn',
+            'ca',
+            'cj',
+            'cs',
+            'da',
+            'de',
+            'el',
+            'en',
+            'es',
+            'et',
+            'eu',
+            'fa',
+            'fi',
+            'fr',
+            'ga',
+            'gl',
+            'he',
+            'hi',
+            'hu',
+            'hy',
+            'ic',
+            'id',
+            'it',
+            'ja',
+            'km',
+            'ko',
+            'lo',
+            'lv',
+            'my',
+            'nb',
+            'nl',
+            'nn',
+            'no',
+            'pl',
+            'pt',
+            'ro',
+            'ru',
+            'sr',
+            'sv',
+            'th',
+            'tr',
+            'uk',
+            'zh'
+        ]

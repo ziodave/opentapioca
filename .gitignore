@@ -9,3 +9,4 @@ opentapioca.egg-info/
 .settings/
 configsets/_default/
 settings.py
+venv/

@@ -1,12 +1,16 @@
 import json
 import requests
 import logging
-from opentapioca.typematcher import TypeMatcher
+
+from opentapioca.typematcher.preloadingtypematcher import PreloadingTypeMatcher
+from opentapioca.typematcher.querytypematcher import QueryTypeMatcher
 
 logger = logging.getLogger(__name__)
 
+
 class CollectionAlreadyExists(Exception):
     pass
+
 
 class TaggerFactory(object):
     """
@@ -23,7 +27,7 @@ class TaggerFactory(object):
         items to particular classes.
         """
         self.solr_endpoint = solr_endpoint
-        self.type_matcher = type_matcher or TypeMatcher()
+        self.type_matcher = type_matcher or PreloadingTypeMatcher()
 
     def create_collection(self, collection_name, num_shards=1, configset='tapioca'):
         """
@@ -31,30 +35,30 @@ class TaggerFactory(object):
         appropriate index structure to be used by a tagger object.
         """
         r = requests.get(self.solr_endpoint + 'admin/collections', {
-            'action':'CREATE',
-            'name':collection_name,
-            'collection.configName':configset,
-            'numShards':num_shards})
+            'action': 'CREATE',
+            'name': collection_name,
+            'collection.configName': configset,
+            'numShards': num_shards})
         if r.status_code == 400 and "already exists" in r.text:
             raise CollectionAlreadyExists('Collection "{}" already exists.'.format(collection_name))
-        r.raise_for_status()
+        # r.raise_for_status()
 
     def delete_collection(self, collection_name):
         """
         Drops a solr collection.
         """
-        r = requests.get(self.solr_endpoint + 'admin/collections', {'action':'DELETE','name':collection_name})
+        r = requests.get(self.solr_endpoint + 'admin/collections', {'action': 'DELETE', 'name': collection_name})
         r.raise_for_status()
 
     def index_stream(self,
-          collection_name,
-          stream,
-          profile,
-          batch_size=5000,
-          max_lines=None,
-          commit_time=10,
-          delete_excluded=False,
-          skip_docs=0):
+                     collection_name,
+                     stream,
+                     profile,
+                     batch_size=1000,
+                     max_lines=None,
+                     commit_time=10,
+                     delete_excluded=False,
+                     skip_docs=0):
         """
         Given a stream of Wikidata items, index it in the given solr collection.
 
@@ -116,12 +120,9 @@ class TaggerFactory(object):
             'delete': ids_to_delete,
         }
         r = requests.post(self._collection_update_endpoint(collection),
-            params={'commit': 'true' if commit else 'false'},
-            data=json.dumps(payload), headers={'Content-Type':'application/json'})
+                          params={'commit': 'true' if commit else 'false'},
+                          data=json.dumps(payload), headers={'Content-Type': 'application/json'})
         try:
             r.raise_for_status()
         except requests.exceptions.RequestException as e:
             logger.warning('Skipping batch: {}'.format(e))
-
-
-

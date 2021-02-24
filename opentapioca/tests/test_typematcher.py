@@ -1,9 +1,7 @@
-import os
-import unittest
 import requests_mock
 import re
-from opentapioca.typematcher import TypeMatcher
-from .test_fixtures import cache_requests
+from opentapioca.typematcher.typematcher import TypeMatcher
+
 
 def test_typematcher(cache_requests):
     """

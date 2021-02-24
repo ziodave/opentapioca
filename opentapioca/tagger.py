@@ -12,6 +12,7 @@ from .mention import Mention
 # solr_collection = 'wd_multilingual'
 logger = logging.getLogger(__name__)
 
+
 class Tagger(object):
     """
     The tagger indexes a Wikidata dump in Solr
@@ -41,14 +42,18 @@ class Tagger(object):
         phrase = phrase[:self.max_length]
         logger.debug('Tagging text with solr (length {})'.format(len(phrase)))
         r = requests.post(self.solr_endpoint,
-            params={'overlaps':'NO_SUB',
-             'tagsLimit':500,
-             'fl':'id,label,aliases,extra_aliases,desc,nb_statements,nb_sitelinks,edges,types',
-             'wt':'json',
-             'indent':'off',
-            },
-            headers ={'Content-Type':'text/plain'},
-            data=phrase.encode('utf-8'))
+                          params={
+                              'fields': 'tag_de_name',
+                              'overlaps': 'NO_SUB',
+                              'tagsLimit': 500,
+                              'fl': 'id,label,aliases,extra_aliases,desc,nb_statements,nb_sitelinks,edges,types',
+                              'wt': 'json',
+                              'indent': 'off',
+                              'matchText': 'true',
+                              'partialMatches': False
+                          },
+                          headers={'Content-Type': 'text/plain'},
+                          data=phrase.encode('utf-8'))
         r.raise_for_status()
         logger.debug('Tagging succeeded')
         resp = r.json()
@@ -59,7 +64,7 @@ class Tagger(object):
             for mention in resp.get('tags', [])
         ]
         docs = {
-            doc['id']:doc
+            doc['id']: doc
             for doc in resp.get('response', {}).get('docs', [])
         }
 
@@ -67,7 +72,7 @@ class Tagger(object):
             self._create_mention(phrase, mention, docs, mentions_json)
             for mention in mentions_json
         ]
-        
+
         pruned_mentions = [
             mention
             for mention in mentions
@@ -108,7 +113,7 @@ class Tagger(object):
             item = dict(docs[qid].items())
             item['rank'] = 23. + log(self.graph.get_pagerank(qid))
             ranked_tags.append(Tag(**item))
-            
+
         return Mention(
             phrase=surface,
             start=start,
@@ -122,18 +127,19 @@ class Tagger(object):
         Converts a list of [key1,val1,key2,val2,...] to a dict
         """
         return {
-            lst[2*k]: lst[2*k+1]
-            for k in range(len(lst)//2)
+            lst[2 * k]: lst[2 * k + 1]
+            for k in range(len(lst) // 2)
         }
 
 
 if __name__ == '__main__':
     import sys
+
     fname = sys.argv[1]
-    print('Loading '+fname)
+    print('Loading ' + fname)
     bow = BOWLanguageModel()
     bow.load(fname)
-    print('Loading '+sys.argv[2])
+    print('Loading ' + sys.argv[2])
     graph = WikidataGraph()
     graph.load_pagerank(sys.argv[2])
     tagger = Tagger(bow, graph)
@@ -148,4 +154,3 @@ if __name__ == '__main__':
                 if 'aliases' in tag:
                     del tag['aliases']
         print(json.dumps(tags, indent=2, sort_keys=True))
-
