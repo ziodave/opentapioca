@@ -11,4 +11,4 @@ configsets/_default/
 settings.py
 venv/
 
-opentapioca/opentapioca/tests/data/requests_cache.sqlite
+opentapioca/tests/data/requests_cache.sqlite
