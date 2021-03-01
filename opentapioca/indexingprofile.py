@@ -1,5 +1,8 @@
 import json
 
+from opentapioca.externalid.allclaimsexternalid import AllClaimsExternalId
+from opentapioca.externalid.dbpediaexternalid import DbpediaExternalId
+
 
 class AliasProperty(object):
     """
@@ -108,6 +111,16 @@ class IndexingProfile(object):
         self.restrict_properties = restrict_properties
         self.alias_properties = alias_properties or []
 
+        configs = [{'claim': 'P214', 'template': 'https://viaf.org/viaf/%s'},
+                   {'claim': 'P646', 'template': 'https://www.google.com/search?kgmid=%s'},
+                   {'claim': 'P1566', 'template': 'https://www.geonames.org/%s'},
+                   {'claim': 'P3749', 'template': 'https://maps.google.com/?cid=%s'},
+                   {'claim': 'P402', 'template': 'https://www.openstreetmap.org/relation/%s'},
+                   {'claim': 'P6363', 'template': '%s'}]
+
+        self.all_claims_external_id = AllClaimsExternalId(configs)
+        self.dbpedia_external_id = DbpediaExternalId()
+
     def entity_to_document(self, item, type_matcher):
         """
         Given a Wikibase entity, translate it to a Solr document for indexing.
@@ -178,6 +191,32 @@ class IndexingProfile(object):
         for description in item.get('descriptions', {}).values():
             if self.is_language_supported(description.get('language')):
                 solr_doc[f"description_{description.get('language')}"] = description.get('value')
+
+        solr_doc['same_as_ss'] = self.dbpedia_external_id.get(item) + self.all_claims_external_id.get(item)
+
+        # Add geo coordinates.
+        p625 = item.get('claims', {}).get('P625', [])
+        if p625:
+            value = p625[0].get('mainsnak', {}).get('datavalue', {}).get('value', {})
+            lat = value.get('latitude')
+            lng = value.get('longitude')
+            if lat is not None and lng is not None:
+                solr_doc['latitude_d'] = lat
+                solr_doc['longitude_d'] = lng
+
+        # Add start date.
+        p580 = item.get('claims', {}).get('P580', [])
+        if p580:
+            value = p580[0].get('mainsnak', {}).get('datavalue', {}).get('value', {}).get('time')
+            if value is not None:
+                solr_doc['start_time_dt'] = value
+
+        # Add end date.
+        p582 = item.get('claims', {}).get('P582', [])
+        if p582:
+            value = p582[0].get('mainsnak', {}).get('datavalue', {}).get('value', {}).get('time')
+            if value is not None:
+                solr_doc['end_time_dt'] = value
 
         return solr_doc
 
