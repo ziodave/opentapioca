@@ -43,14 +43,15 @@ class Tagger(object):
         logger.debug('Tagging text with solr (length {})'.format(len(phrase)))
         r = requests.post(self.solr_endpoint,
                           params={
-                              'fields': 'tag_de_name',
-                              'overlaps': 'NO_SUB',
+                              'field': 'tag_en_alias',
+                              'overlaps': 'LONGEST_DOMINANT_RIGHT',
                               'tagsLimit': 500,
-                              'fl': 'id,label,aliases,extra_aliases,desc,nb_statements,nb_sitelinks,edges,types',
+                              'fl': 'id,tag_en_name,tag_en_alias,description_en,nb_statements,nb_sitelinks,edges,types',
+                              # 'fl': 'id,label,aliases,extra_aliases,desc,nb_statements,nb_sitelinks,edges,types',
                               'wt': 'json',
                               'indent': 'off',
                               'matchText': 'true',
-                              'partialMatches': False
+                              'partialMatches': 'false'
                           },
                           headers={'Content-Type': 'text/plain'},
                           data=phrase.encode('utf-8'))
@@ -64,7 +65,10 @@ class Tagger(object):
             for mention in resp.get('tags', [])
         ]
         docs = {
-            doc['id']: doc
+            doc['id']: {'id': doc.get('id'), 'label': doc.get('tag_en_name'), 'aliases': doc.get('tag_en_alias'),
+                        'extra_aliases': [],
+                        'desc': doc.get('description_en'), 'nb_statements': doc.get('nb_statements'),
+                        'nb_sitelinks': doc.get('nb_sitelinks'), 'edges': doc.get('edges'), 'types': doc.get('types')[0]}
             for doc in resp.get('response', {}).get('docs', [])
         }
 

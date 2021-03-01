@@ -12,3 +12,4 @@ click
 pynif
 sseclient
 python-dateutil
+tenacity==6.3.1

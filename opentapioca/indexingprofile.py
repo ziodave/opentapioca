@@ -129,14 +129,14 @@ class IndexingProfile(object):
         if not valid_item:
             return
 
-        enlabel = item.get_default_label(self.language)
-        endesc = item.get('descriptions', {}).get(self.language, {}).get('label')
-        if not enlabel:
-            return
+        # enlabel = item.get_default_label(self.language)
+        # endesc = item.get('descriptions', {}).get(self.language, {}).get('label')
+        # if not enlabel:
+        #     return
 
         # Fetch aliases
-        aliases = item.get_all_terms()
-        aliases.remove(enlabel)
+        # aliases = item.get_all_terms()
+        # aliases.remove(enlabel)
 
         # Edges
         edges = item.get_outgoing_edges(include_p31=False, numeric=True)
@@ -167,14 +167,13 @@ class IndexingProfile(object):
         }
 
         for label in item.get('labels', {}).values():
-            if self.is_language_supported(label.get('language')):
-                solr_doc[f"tag_{label.get('language')}_name"] = label.get('value')
+            language = label.get('language')
+            if self.is_language_supported(language):
+                solr_doc[f"tag_{language}_name"] = label.get('value')
 
-        for aliases_language in item.get('aliases', {}).keys():
-            if self.is_language_supported(aliases_language):
-                solr_doc[f"tag_{aliases_language}_alias"] = set()
-                for alias in item.get('aliases', {}).get(aliases_language):
-                    solr_doc[f"tag_{aliases_language}_alias"].add(alias.get('value'))
+                solr_doc[f"tag_{language}_alias"] = [label.get('value')]
+                for alias in item.get('aliases', {}).get(language, []):
+                    solr_doc[f"tag_{language}_alias"].append(alias.get('value'))
 
         for description in item.get('descriptions', {}).values():
             if self.is_language_supported(description.get('language')):
