@@ -11,11 +11,14 @@ import pickle
 
 logger = logging.getLogger(__name__)
 
+
 class SimpleTagClassifier(object):
     """
     A linear support vector classifier to predict the validity of a tag in a mention.
     """
-    def __init__(self, tagger, beta=0.85, nb_steps=2, C=0.001, max_similarity_distance=100, similarity_smoothing=0.1, similarity="direct_link"):
+
+    def __init__(self, tagger, beta=0.85, nb_steps=2, C=0.001, max_similarity_distance=100, similarity_smoothing=0.1,
+                 similarity="direct_link"):
         self.tagger = tagger
         self.beta = beta
         self.nb_steps = nb_steps
@@ -49,7 +52,6 @@ class SimpleTagClassifier(object):
             dct[tag_key] = feature_vector
         return dct
 
-
     def load(self, fname):
         """
         Loads the classifier from a file (.pkl format).
@@ -70,12 +72,12 @@ class SimpleTagClassifier(object):
             del dct['tagger']
             pickle.dump(dct, f)
 
-    def create_mentions(self, phrase):
+    def create_mentions(self, phrase, language='en'):
         """
         Runs the Solr tagger to create the mentions
         and compute the similarities between them.
         """
-        mentions = self.tagger.tag_and_rank(phrase)
+        mentions = self.tagger.tag_and_rank(phrase, language)
         for mention in mentions:
             self.compute_similarities(mention, mentions)
         return mentions
@@ -97,11 +99,11 @@ class SimpleTagClassifier(object):
         with cross-validation.
         """
         k = 5
-        chunks = [ set() for i in range(k) ]
+        chunks = [set() for i in range(k)]
         for idx, context in enumerate(dataset.contexts):
             chunks[idx % k].add(context)
         logger.info('Chunk lengths:')
-        logger.info([ len(chunk) for chunk in chunks])
+        logger.info([len(chunk) for chunk in chunks])
 
         all_contexts = set(dataset.contexts)
 
@@ -135,7 +137,7 @@ class SimpleTagClassifier(object):
                 self.train_model(dataset, training_chunks, docid_to_mentions)
                 chunk_scores = self.evaluate_model(chunks[chunk_id], docid_to_mentions)
                 for method, score in chunk_scores.items():
-                    scores[method] += score/k
+                    scores[method] += score / k
             logger.info('----- {}/{}'.format(idx, len(parameters)))
             logger.info(param_setting)
             logger.info(dict(scores.items()))
@@ -149,7 +151,6 @@ class SimpleTagClassifier(object):
                 self.save('data/best_classifier_so_far.pkl')
             else:
                 self.save('data/latest_classifier.pkl')
-
 
         self.fit = best_classifier
         return best_params, best_f1
@@ -180,7 +181,7 @@ class SimpleTagClassifier(object):
 
             # Match the phrases in the dataset to mentions and mark them as valid
             mention_index = {
-                mention.key() : mention for mention in mentions
+                mention.key(): mention for mention in mentions
             }
             for phrase in context.phrases:
                 if not phrase.taIdentRef or not phrase.taIdentRef.startswith(self.identifier_space):
@@ -209,8 +210,8 @@ class SimpleTagClassifier(object):
             return
 
         scaler = preprocessing.StandardScaler()
-        clf = svm.LinearSVC(class_weight='balanced',C=self.C, max_iter=max_iter)
-        pipeline = Pipeline([('scaler',scaler),('svm',clf)])
+        clf = svm.LinearSVC(class_weight='balanced', C=self.C, max_iter=max_iter)
+        pipeline = Pipeline([('scaler', scaler), ('svm', clf)])
 
         fit = pipeline.fit(design_matrix, classes)
         self.fit = fit
@@ -229,7 +230,7 @@ class SimpleTagClassifier(object):
         for context in contexts:
             context_id = str(context.uri)
             mention_id_to_qid = {
-                (phrase.beginIndex,phrase.endIndex): phrase.taIdentRef[len(self.identifier_space):]
+                (phrase.beginIndex, phrase.endIndex): phrase.taIdentRef[len(self.identifier_space):]
                 for phrase in context.phrases
                 if phrase.taIdentRef and phrase.taIdentRef.startswith(self.identifier_space)
             }
@@ -249,12 +250,12 @@ class SimpleTagClassifier(object):
         # print({'nb_valid_predictions':nb_valid_predictions, 'nb_predictions': nb_predictions, 'nb_item_judgments':nb_item_judgments})
         precision = float(nb_valid_predictions) / nb_predictions if nb_predictions else 1.
         recall = float(nb_valid_predictions) / nb_item_judgments if mention_id_to_qid else 1
-        f1 = 2*(precision*recall) / (precision + recall) if precision + recall > 0. else 0.
+        f1 = 2 * (precision * recall) / (precision + recall) if precision + recall > 0. else 0.
         return {
-                'precision':precision,
-                'recall':recall,
-                'f1':f1
-                }
+            'precision': precision,
+            'recall': recall,
+            'f1': f1
+        }
 
     def build_feature_vectors_for_doc(self, mentions):
         """
@@ -283,20 +284,20 @@ class SimpleTagClassifier(object):
         feature_array = numpy.array(feature_array)
 
         # Build graph adjacency matrix
-        adj_matrix = numpy.zeros(shape=(len(feature_array),len(feature_array)))
+        adj_matrix = numpy.zeros(shape=(len(feature_array), len(feature_array)))
         for mention in mentions:
             for tag in mention.tags:
                 tag_idx = tag_key_to_idx[mention.tag_key(tag.id)]
                 for similarity in tag.similarities:
                     if not similarity['tag'] in tag_key_to_idx:
-                        continue # the tag was pruned
+                        continue  # the tag was pruned
                     other_tag_idx = tag_key_to_idx[similarity['tag']]
-                    adj_matrix[other_tag_idx,tag_idx] = similarity['score']
+                    adj_matrix[other_tag_idx, tag_idx] = similarity['score']
 
         mixed_features = feature_array
         mixed_features_array = [feature_array]
         mixed_features = mixed_features.astype(float)
-        
+
         for i in range(self.nb_steps):
             mixed_features = numpy.dot(adj_matrix, mixed_features)
             mixed_features_array.append(mixed_features)
@@ -339,7 +340,7 @@ class SimpleTagClassifier(object):
         start = mention.start
         end = mention.end
         for tag in mention.tags:
-            similarities = [{'tag':mention.tag_key(tag.id), 'score':self.similarity_smoothing}]
+            similarities = [{'tag': mention.tag_key(tag.id), 'score': self.similarity_smoothing}]
             other_tag_ids = []
             for other_mention in all_mentions:
                 other_start = other_mention.start
@@ -355,15 +356,14 @@ class SimpleTagClassifier(object):
                     other_tag_ids.append(other_tag_id)
                     if similarity > 0.:
                         similarities.append(
-                                {'tag': other_tag_id,
-                                 'score': similarity })
+                            {'tag': other_tag_id,
+                             'score': similarity})
 
             # Normalize
             weight_sum = sum(similarity['score'] for similarity in similarities)
 
             if weight_sum > 0.:
                 tag.similarities = [
-                        {'tag':sim['tag'],'score': sim['score']/weight_sum}
-                        for sim in similarities
+                    {'tag': sim['tag'], 'score': sim['score'] / weight_sum}
+                    for sim in similarities
                 ]
-

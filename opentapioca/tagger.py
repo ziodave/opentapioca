@@ -4,6 +4,7 @@ import logging
 import re
 from math import log
 
+from opentapioca.indexingprofile import IndexingProfile
 from .languagemodel import BOWLanguageModel
 from .wikidatagraph import WikidataGraph
 from .tag import Tag
@@ -33,20 +34,23 @@ class Tagger(object):
         self.prune_re = re.compile(r'^(\w\w?|[\d ]{,4})$')
         self.max_length = 10000
 
-    def tag_and_rank(self, phrase, prune=True):
+    def tag_and_rank(self, phrase, language='en'):
         """
         Given some text, use the solr index to retrieve candidate items mentioned in the text.
         :param prune: if True, ignores lowercase mentions shorter than 3 characters
         """
         # Tag
+        language = self.fallback_if_unsupported_language(language)
         phrase = phrase[:self.max_length]
         logger.debug('Tagging text with solr (length {})'.format(len(phrase)))
         r = requests.post(self.solr_endpoint,
                           params={
-                              'field': 'tag_en_alias',
+                              'field': 'tag_{}_alias'.format(language),
                               'overlaps': 'LONGEST_DOMINANT_RIGHT',
                               'tagsLimit': 500,
-                              'fl': 'id,tag_en_name,tag_en_alias,description_en,nb_statements,nb_sitelinks,edges,types',
+                              'fl': 'id,tag_{language}_name,tag_{language}_alias,description_en,nb_statements,'
+                                    'nb_sitelinks,edges,types,latitude_d,longitude_d,start_time_dt,end_time_dt'.format(
+                                  language=language),
                               # 'fl': 'id,label,aliases,extra_aliases,desc,nb_statements,nb_sitelinks,edges,types',
                               'wt': 'json',
                               'indent': 'off',
@@ -68,7 +72,8 @@ class Tagger(object):
             doc['id']: {'id': doc.get('id'), 'label': doc.get('tag_en_name'), 'aliases': doc.get('tag_en_alias'),
                         'extra_aliases': [],
                         'desc': doc.get('description_en'), 'nb_statements': doc.get('nb_statements'),
-                        'nb_sitelinks': doc.get('nb_sitelinks'), 'edges': doc.get('edges'), 'types': doc.get('types')[0]}
+                        'nb_sitelinks': doc.get('nb_sitelinks'), 'edges': doc.get('edges'),
+                        'types': doc.get('types')[0]}
             for doc in resp.get('response', {}).get('docs', [])
         }
 
@@ -134,6 +139,13 @@ class Tagger(object):
             lst[2 * k]: lst[2 * k + 1]
             for k in range(len(lst) // 2)
         }
+
+    @staticmethod
+    def fallback_if_unsupported_language(language):
+        if IndexingProfile.is_language_supported(language):
+            return language
+        else:
+            return 'en'
 
 
 if __name__ == '__main__':

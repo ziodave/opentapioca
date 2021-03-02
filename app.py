@@ -31,10 +31,12 @@ if settings.SOLR_COLLECTION:
     if settings.CLASSIFIER_PATH:
         classifier.load(settings.CLASSIFIER_PATH)
 
+
 def jsonp(view):
     """
     Decorator for views that return JSON
     """
+
     def wrapped(*posargs, **kwargs):
         args = {}
         # if we access the args via get(),
@@ -47,12 +49,12 @@ def jsonp(view):
         status_code = 200
         try:
             result = view(args, *posargs, **kwargs)
-        except (KeyError) as e:#ValueError, AttributeError, KeyError) as e:
+        except (KeyError) as e:  # ValueError, AttributeError, KeyError) as e:
             import traceback, sys
             traceback.print_exc(file=sys.stdout)
-            result = {'status':'error',
-                    'message':'invalid query',
-                    'details': str(e)}
+            result = {'status': 'error',
+                      'message': 'invalid query',
+                      'details': str(e)}
             status_code = 403
         if callback:
             result = '%s(%s);' % (callback, json.dumps(result))
@@ -65,22 +67,24 @@ def jsonp(view):
     return wrapped
 
 
-@route('/api/annotate', method=['GET','POST'])
+@route('/api/annotate', method=['GET', 'POST'])
 @jsonp
 def annotate_api(args):
     text = args['query']
+    language_code = args.get('lc', 'en')
     if not classifier:
-        mentions = tagger.tag_and_rank(text)
+        mentions = tagger.tag_and_rank(text, language_code)
     else:
-        mentions = classifier.create_mentions(text)
+        mentions = classifier.create_mentions(text, language_code)
         classifier.classify_mentions(mentions)
 
     return {
-        'text':text,
+        'text': text,
         'annotations': [m.json() for m in mentions]
     }
 
-@route('/api/nif', method=['GET','POST'])
+
+@route('/api/nif', method=['GET', 'POST'])
 def nif_api(*args, **kwargs):
     content_format = request.headers.get('Content') or 'application/x-turtle'
     content_type_to_format = {
@@ -99,17 +103,21 @@ def nif_api(*args, **kwargs):
     response.set_header('content-type', content_format)
     return nif_doc.dumps()
 
+
 @route('/')
 def home():
     return static_file('index.html', root=os.path.join(tapioca_dir, 'html/'))
+
 
 @route('/css/<fname>')
 def css(fname):
     return static_file(fname, root=os.path.join(tapioca_dir, 'html/css/'))
 
+
 @route('/js/<fname>')
 def js(fname):
     return static_file(fname, root=os.path.join(tapioca_dir, 'html/js/'))
+
 
 if __name__ == '__main__':
     run(host='0.0.0.0', port=8457, debug=True)
