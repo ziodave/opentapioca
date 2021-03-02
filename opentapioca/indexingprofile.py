@@ -111,11 +111,19 @@ class IndexingProfile(object):
         self.restrict_properties = restrict_properties
         self.alias_properties = alias_properties or []
 
-        configs = [{'claim': 'P214', 'template': 'https://viaf.org/viaf/%s'},
-                   {'claim': 'P646', 'template': 'https://www.google.com/search?kgmid=%s'},
-                   {'claim': 'P1566', 'template': 'https://www.geonames.org/%s'},
+        configs = [{'claim': 'P214', 'template': 'http://viaf.org/viaf/%s'},
+                   {'claim': 'P646', 'template': 'http://g.co/kg%s'},
+                   {'claim': 'P1566', 'template': 'http://sws.geonames.org/%s/'},
                    {'claim': 'P3749', 'template': 'https://maps.google.com/?cid=%s'},
                    {'claim': 'P402', 'template': 'https://www.openstreetmap.org/relation/%s'},
+                   {'claim': 'P5437', 'template': 'http://eurovoc.europa.eu/%s'},
+                   {'claim': 'P486', 'template': 'http://id.nlm.nih.gov/mesh/%s'},
+                   {'claim': 'P2581', 'template': 'http://babelnet.org/rdf/s%s'},
+                   {'claim': 'P1617', 'template': 'http://www.bbc.co.uk/things/%s#id'},
+                   {'claim': 'P982', 'template': 'http://musicbrainz.org/area/%s'},
+                   {'claim': 'P434', 'template': 'http://musicbrainz.org/artist/%s'},
+                   {'claim': 'P435', 'template': 'http://musicbrainz.org/work/%s'},
+                   {'claim': 'P435', 'template': 'http://musicbrainz.org/release-group/%s'},
                    {'claim': 'P6363', 'template': '%s'}]
 
         self.all_claims_external_id = AllClaimsExternalId(configs)
@@ -129,6 +137,14 @@ class IndexingProfile(object):
         """
         valid_type_qids = item.get_types()
 
+        # Skip if it's a Wikimedia disambiguation page.
+        instance_of = item.get('claims', {}).get('P31', [])
+        if instance_of:
+            value = instance_of[0].get('mainsnak', {}).get('datavalue', {}).get('value', {}).get('id')
+            if value == 'Q4167410':
+                print("Skipping Wikimedia disambiguation page %s" % item.get('id'))
+                return
+
         type_features = {
             constraint.qid: constraint.satisfied(item, type_matcher)
             for constraint in self.restrict_types or []
@@ -139,7 +155,7 @@ class IndexingProfile(object):
         })
         correct_type = any(type_features.values())
         valid_item = correct_type or (not self.restrict_types and not self.restrict_properties)
-        if not valid_item:
+        if not valid_item or not item.get('id').startswith('Q'):
             return
 
         # enlabel = item.get_default_label(self.language)

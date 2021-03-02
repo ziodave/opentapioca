@@ -63,6 +63,6 @@ class DbpediaExternalId(ExternalId):
             template = config.get('template')
             title = sitelinks.get('{}wiki'.format(language), {}).get('title')
             if title is not None:
-                ids.append(template.format(language=language, title=title))
+                ids.append(template.format(language=language, title=title.replace(' ', '_')))
 
         return ids

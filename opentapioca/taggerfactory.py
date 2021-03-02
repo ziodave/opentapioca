@@ -54,7 +54,7 @@ class TaggerFactory(object):
                      collection_name,
                      stream,
                      profile,
-                     batch_size=100,
+                     batch_size=1000,
                      max_lines=None,
                      commit_time=10,
                      delete_excluded=False,
