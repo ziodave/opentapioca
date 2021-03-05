@@ -2,6 +2,8 @@ import json
 import requests
 import logging
 
+from tenacity import retry, wait_exponential
+
 from opentapioca.typematcher.preloadingtypematcher import PreloadingTypeMatcher
 from opentapioca.typematcher.querytypematcher import QueryTypeMatcher
 
@@ -104,6 +106,7 @@ class TaggerFactory(object):
         """
         return '{endpoint}{collection}/update'.format(endpoint=self.solr_endpoint, collection=collection)
 
+    @retry(reraise=True, wait=wait_exponential(multiplier=1, min=2, max=300))
     def _push_documents(self, docs, collection, commit=False):
         """
         Sends documents to Solr for indexing.
